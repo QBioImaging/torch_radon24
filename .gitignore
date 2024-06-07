@@ -6,7 +6,7 @@ __pycache__/
 .vscode/
 # C extensions
 *.so
-
+.pypirc
 # Distribution / packaging
 .Python
 build/
