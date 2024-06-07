@@ -8,7 +8,7 @@ setup(
     license="GNU GENERAL PUBLIC LICENSE",
     packages=["torch_radon24"],
     install_requires=[
-        "pytorch>=2.0.0",
+        "torch>=2.0.0",
         "numpy>=1.21.0",
     ],
     classifiers=[
