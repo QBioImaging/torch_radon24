@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from .filters import ramp_filter, fourier_filter
+from .filters import fourier_filter
 
 
 class Radon(torch.nn.Module):
@@ -47,10 +47,9 @@ class Radon(torch.nn.Module):
 
         projection_size_padded = max(64, int(2 ** (2 * torch.tensor(det_count)).float().log2().ceil()))
         self.pad_width = projection_size_padded - det_count
-        
-        self.filter = fourier_filter(name=filter, size = projection_size_padded, device=device)
-        # self.filter = ramp_filter(projection_size_padded).to(device)
 
+        self.filter = fourier_filter(name=filter, size=projection_size_padded, device=device)
+        # self.filter = ramp_filter(projection_size_padded).to(device)
 
     def forward(self, image):
         """Apply radon transformation on input image.

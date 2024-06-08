@@ -15,8 +15,8 @@ def fourier_filter(name, size, device="cpu"):
         fourier_filter[1:] *= torch.sin(omega) / omega
 
     elif name == "cosine":
-        freq = torch.linspace(0, torch.pi, size, endpoint=False)
-        cosine_filter = torch.fff.fftshift(torch.sin(freq))
+        freq = torch.linspace(0, torch.pi - (torch.pi / size), size)
+        cosine_filter = torch.fft.fftshift(torch.sin(freq))
         fourier_filter *= cosine_filter
 
     elif name == "hamming":
@@ -27,15 +27,9 @@ def fourier_filter(name, size, device="cpu"):
     else:
         print(f"[TorchRadon] Error, unknown filter type '{name}', available filters are: 'ramp', 'shepp_logan', 'cosine', 'hamming', 'hann'")
 
-    filter = fourier_filter[: size // 2 + 1]
-    filter = filter.to(device)
+    filter = fourier_filter.to(device)
 
     return filter
 
 
-def ramp_filter(size):
-    n = torch.cat((torch.arange(1, size / 2 + 1, 2, dtype=int), torch.arange(size / 2 - 1, 0, -2, dtype=int)))
-    f = torch.zeros(size)
-    f[0] = 0.25
-    f[1::2] = -1 / (torch.pi * n) ** 2
-    return 2 * torch.real(torch.fft.fft(f))
+
