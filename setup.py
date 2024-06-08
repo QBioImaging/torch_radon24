@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     
 setup(
     name="torch_radon24",
-    version="0.1",
+    version="0.2",
     description="Radon Transformation for Pytorch 2.0 package",
     author="Minh Nhat Trinh",
     license="GNU GENERAL PUBLIC LICENSE",
@@ -21,4 +21,7 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    
 )
