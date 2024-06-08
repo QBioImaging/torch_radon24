@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from .filters import ramp_filter
+from .filters import ramp_filter, fourier_filter
 
 
 class Radon(torch.nn.Module):
@@ -9,13 +9,16 @@ class Radon(torch.nn.Module):
     Radon Transformation
 
     Args:
-        n_angles (int): number of projection angles for radon tranformation (default: 1000)
+        n_angles (int): number of projection angles for radon transformation (default: 1000)
         image_size (int): edge length of input image (default: 400)
+        circle (bool): if True, only the circle is reconstructed (default: False)
+        det_count (int): number of detectors (default: None)
+        filter (str): filter for backprojection, can be "ramp" or "shepp_logan" or "cosine" or "hamming" or "hann" (default: "ramp")
         device: (str): device can be either "cuda" or "cpu" (default: cuda)
 
     """
 
-    def __init__(self, n_angles=1000, image_size=400, circle=False, det_count=None, filter="ramp_filter", device="cuda"):
+    def __init__(self, n_angles=1000, image_size=400, circle=False, det_count=None, filter="ramp", device="cuda"):
         super(Radon, self).__init__()
         self.n_angles = n_angles
         self.image_size = image_size
@@ -44,11 +47,10 @@ class Radon(torch.nn.Module):
 
         projection_size_padded = max(64, int(2 ** (2 * torch.tensor(det_count)).float().log2().ceil()))
         self.pad_width = projection_size_padded - det_count
-        if filter == "ramp_filter":
+        
+        self.filter = fourier_filter(name=filter, size = projection_size_padded, device=device)
+        # self.filter = ramp_filter(projection_size_padded).to(device)
 
-            self.filter = ramp_filter(projection_size_padded).to(device)
-        else:
-            self.filter = None
 
     def forward(self, image):
         """Apply radon transformation on input image.
