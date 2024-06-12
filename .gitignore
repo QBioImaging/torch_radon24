@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 .history/
+PyPI*
 __pycache__/
 *.py[cod]
 *$py.class
