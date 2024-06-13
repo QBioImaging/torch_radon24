@@ -76,11 +76,8 @@ class Radon(torch.nn.Module):
                 self.resize_info["pad"] = (pad_W, pad_H)
             else:
                 # Center crop if the image is larger than self.image_size
-
-                crop_W = W - self.image_size
-                crop_H = H - self.image_size
-                crop_W_start = crop_W // 2
-                crop_H_start = crop_H // 2
+                crop_W_start = (W - self.image_size) // 2
+                crop_H_start = (H - self.image_size) // 2
                 image = image[:, :, crop_W_start : crop_W_start + self.image_size, crop_H_start : crop_H_start + self.image_size]
                 self.resize_info["crop"] = (crop_W_start, crop_H_start)
 
