@@ -47,8 +47,10 @@ class Radon(torch.nn.Module):
 
         projection_size_padded = max(64, int(2 ** (2 * torch.tensor(det_count)).float().log2().ceil()))
         self.pad_width = projection_size_padded - det_count
-
-        self.filter = fourier_filter(name=filter, size=projection_size_padded, device=device)
+        if filter is None:
+            self.filter = None
+        else:
+            self.filter = fourier_filter(name=filter, size=projection_size_padded, device=device)
         # self.filter = ramp_filter(projection_size_padded).to(device)
 
     def forward(self, image):
