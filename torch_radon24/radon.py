@@ -23,7 +23,7 @@ class Radon(torch.nn.Module):
         self.n_angles = n_angles
         self.image_size = image_size
         # get angles
-        thetas = torch.linspace(0, np.pi - (np.pi / n_angles), n_angles)[:, None, None]
+        thetas = torch.linspace(0, np.pi, n_angles)[:, None, None]
         cos_al, sin_al = thetas.cos(), thetas.sin()
         zeros = torch.zeros_like(cos_al)
         # calculate rotations
@@ -51,7 +51,6 @@ class Radon(torch.nn.Module):
             self.filter = None
         else:
             self.filter = fourier_filter(name=filter, size=projection_size_padded, device=device)
-        # self.filter = ramp_filter(projection_size_padded).to(device)
 
     def forward(self, image):
         """Apply radon transformation on input image.

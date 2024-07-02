@@ -3,10 +3,10 @@ from setuptools import setup
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-    
+
 setup(
     name="torch_radon24",
-    version="0.5",
+    version="0.8",
     description="Radon Transformation for Pytorch 2.0 package",
     author="Minh Nhat Trinh",
     license="GNU GENERAL PUBLIC LICENSE",
@@ -23,5 +23,4 @@ setup(
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
-    
 )
