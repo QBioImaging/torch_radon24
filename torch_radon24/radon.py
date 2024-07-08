@@ -52,6 +52,8 @@ class Radon(torch.nn.Module):
         else:
             self.filter = fourier_filter(name=filter, size=projection_size_padded, device=device)
 
+        self.resize_info = {"original_shape": (image_size, image_size), "pad": False, "crop": False}
+
     def forward(self, image):
         """Apply radon transformation on input image.
 
