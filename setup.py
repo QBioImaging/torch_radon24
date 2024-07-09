@@ -13,7 +13,7 @@ setup(
     packages=["torch_radon24"],
     install_requires=[
         "torch>=2.0.0",
-        "numpy>=1.21.0",
+        "numpy>=1.25.0",
     ],
     classifiers=[
         "Intended Audience :: Science/Research",
