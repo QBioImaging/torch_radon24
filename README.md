@@ -9,5 +9,3 @@ pip install torch_radon24
 ```
 
 Once installed, you can import the library in your Python code and start using the Radon transform functionality provided by torch_radon24.
-
-To learn how to use this library, you can refer to the tutorial available at [this link](https://github.com/QBioImaging/torch_radon24/blob/main/test.ipynb).
