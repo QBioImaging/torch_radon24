@@ -41,13 +41,22 @@ class Radon(torch.nn.Module):
         if self.circle == False:
             pad_width = get_pad_width(image_size)
             image_size = int(torch.ceil(torch.tensor((2**0.5) * image_size)))
-            new_img = torch.nn.functional.pad(image, pad=[pad_width[1][0], pad_width[1][1], pad_width[0][0], pad_width[0][1]], mode="constant", value=0)
+            new_img = torch.nn.functional.pad(
+                image,
+                pad=[pad_width[1][0], pad_width[1][1], pad_width[0][0], pad_width[0][1]],
+                mode="constant",
+                value=0,
+            )
         else:
             new_img = image
 
         # calculate rotations
-        rotations = torch.stack((self.cos_al, self.sin_al, self.zeros, -self.sin_al, self.cos_al, self.zeros), -1).reshape(-1, 2, 3)
-        self.rotated = torch.nn.functional.affine_grid(rotations, torch.Size([self.n_angles, 1, image_size, image_size]), align_corners=True).reshape(1, -1, image_size, 2)
+        rotations = torch.stack(
+            (self.cos_al, self.sin_al, self.zeros, -self.sin_al, self.cos_al, self.zeros), -1
+        ).reshape(-1, 2, 3)
+        self.rotated = torch.nn.functional.affine_grid(
+            rotations, torch.Size([self.n_angles, 1, image_size, image_size]), align_corners=True
+        ).reshape(1, -1, image_size, 2)
         self.rotated = self.rotated.to(self.device)
 
         out_fl = torch.nn.functional.grid_sample(new_img, self.rotated.repeat(batch_size, 1, 1, 1), align_corners=True)
@@ -66,7 +75,9 @@ class Radon(torch.nn.Module):
         """
 
         bsz, _, det_count, _ = sinogram.shape
-        grid_y, grid_x = torch.meshgrid(torch.linspace(-1, 1, det_count), torch.linspace(-1, 1, det_count), indexing="ij")
+        grid_y, grid_x = torch.meshgrid(
+            torch.linspace(-1, 1, det_count), torch.linspace(-1, 1, det_count), indexing="ij"
+        )
         # get rotated grid
         tgrid = (grid_x * self.cos_al - grid_y * self.sin_al).unsqueeze(-1)
         y = torch.ones_like(tgrid) * torch.linspace(-1, 1, self.n_angles)[:, None, None, None]
@@ -89,7 +100,9 @@ class Radon(torch.nn.Module):
         else:
             radon_filtered = sinogram
         # Reconstruct
-        reconstructed = torch.nn.functional.grid_sample(radon_filtered, grid, mode="bilinear", padding_mode="zeros", align_corners=True)
+        reconstructed = torch.nn.functional.grid_sample(
+            radon_filtered, grid, mode="bilinear", padding_mode="zeros", align_corners=True
+        )
         reconstructed = reconstructed.view(bsz, self.n_angles, 1, det_count, det_count).sum(1)
 
         # Circle
@@ -97,8 +110,10 @@ class Radon(torch.nn.Module):
         reconstructed = reconstructed * torch.pi / (2 * self.n_angles)
 
         if self.circle == False:
-            # center crop reconstructed to the output size
-            pad_width = get_pad_width(int(torch.floor(torch.tensor(det_count / (2**0.5)))))
-            reconstructed = reconstructed[:, :, pad_width[0][0] : -pad_width[0][1], pad_width[1][0] : -pad_width[1][1]]
+            # center crop reconstructed to the output size = det_count / (2**0.5)
+            output_size = int(torch.floor(torch.tensor(det_count / (2**0.5))))
+            start_idx = (det_count - output_size) // 2
+            end_idx = start_idx + output_size
+            reconstructed = reconstructed[:, :, start_idx:end_idx, start_idx:end_idx]
 
         return reconstructed
