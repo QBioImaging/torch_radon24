@@ -1,6 +1,8 @@
 import torch
 from .utils import fourier_filter, get_pad_width
 
+import torch.nn.functional as F
+
 
 class Radon(torch.nn.Module):
     """
@@ -8,11 +10,9 @@ class Radon(torch.nn.Module):
 
     Args:
         thetas (int): list of angles for radon transformation (default: [0, np.pi])
-        image_size (int): edge length of input image (default: 400)
         circle (bool): if True, only the circle is reconstructed (default: False)
         filter_name (str): filter for backprojection, can be "ramp" or "shepp_logan" or "cosine" or "hamming" or "hann" (default: "ramp")
-        device: (str): device can be either "cuda" or "cpu" (default: cuda)
-
+        device: (str): device can be either "cuda" or "cpu" (default: cuda")
     """
 
     def __init__(self, thetas=[0, torch.pi], circle=False, filter_name="ramp", device="cuda"):
@@ -22,7 +22,10 @@ class Radon(torch.nn.Module):
         self.filter_name = filter_name
         self.device = device
 
-        # get angles
+        # # get angles
+        # thetas = torch.tensor(thetas, dtype=torch.float32)
+        # self.cos_al, self.sin_al = thetas.cos(), thetas.sin()
+
         thetas = torch.tensor(thetas, dtype=torch.float32)[:, None, None]
         self.cos_al, self.sin_al = thetas.cos(), thetas.sin()
         self.zeros = torch.zeros_like(self.cos_al)
@@ -38,10 +41,10 @@ class Radon(torch.nn.Module):
         """
         batch_size, _, image_size, _ = image.shape
         # code for circle case
-        if self.circle == False:
+        if not self.circle:
             pad_width = get_pad_width(image_size)
             image_size = int(torch.ceil(torch.tensor((2**0.5) * image_size)))
-            new_img = torch.nn.functional.pad(
+            new_img = F.pad(
                 image,
                 pad=[pad_width[1][0], pad_width[1][1], pad_width[0][0], pad_width[0][1]],
                 mode="constant",
@@ -50,17 +53,20 @@ class Radon(torch.nn.Module):
         else:
             new_img = image
 
-        # calculate rotations
-        rotations = torch.stack(
-            (self.cos_al, self.sin_al, self.zeros, -self.sin_al, self.cos_al, self.zeros), -1
-        ).reshape(-1, 2, 3)
-        self.rotated = torch.nn.functional.affine_grid(
-            rotations, torch.Size([self.n_angles, 1, image_size, image_size]), align_corners=True
-        ).reshape(1, -1, image_size, 2)
-        self.rotated = self.rotated.to(self.device)
+        # Calculate rotated images
+        rotated_images = []
+        for cos_al, sin_al in zip(self.cos_al, self.sin_al):
+            theta = (
+                torch.tensor([[cos_al, sin_al, 0], [-sin_al, cos_al, 0]], dtype=torch.float32)
+                .unsqueeze(0)
+                .to(self.device)
+            )
 
-        out_fl = torch.nn.functional.grid_sample(new_img, self.rotated.repeat(batch_size, 1, 1, 1), align_corners=True)
-        out_fl = out_fl.reshape(batch_size, 1, self.n_angles, image_size, image_size)
+            grid = F.affine_grid(theta, torch.Size([1, 1, image_size, image_size]), align_corners=True)
+            rotated_img = F.grid_sample(new_img, grid.repeat(batch_size, 1, 1, 1), align_corners=True)
+            rotated_images.append(rotated_img)
+
+        out_fl = torch.stack(rotated_images, dim=2).to(self.device)
         out = out_fl.sum(3).permute(0, 1, 3, 2)
         return out
 
@@ -78,14 +84,8 @@ class Radon(torch.nn.Module):
         grid_y, grid_x = torch.meshgrid(
             torch.linspace(-1, 1, det_count), torch.linspace(-1, 1, det_count), indexing="ij"
         )
-        # get rotated grid
-        tgrid = (grid_x * self.cos_al - grid_y * self.sin_al).unsqueeze(-1)
-        y = torch.ones_like(tgrid) * torch.linspace(-1, 1, self.n_angles)[:, None, None, None]
-        grid = torch.cat((y, tgrid), dim=-1).view(self.n_angles * det_count, det_count, 2)[None].to(self.device)
-        grid = grid.repeat(bsz, 1, 1, 1)
-
         reconstruction_circle = (grid_x**2 + grid_y**2) <= 1
-        reconstructed_circle = reconstruction_circle.repeat(bsz, 1, 1, 1)
+        reconstructed_circle = reconstruction_circle.repeat(bsz, 1, 1, 1).to(self.device)
 
         projection_size_padded = max(64, int(2 ** (2 * torch.tensor(det_count)).float().log2().ceil()))
         self.pad_width_sino = projection_size_padded - det_count
@@ -99,11 +99,22 @@ class Radon(torch.nn.Module):
             radon_filtered = torch.real(torch.fft.ifft(projection, dim=2))[:, :, :det_count, :]
         else:
             radon_filtered = sinogram
-        # Reconstruct
-        reconstructed = torch.nn.functional.grid_sample(
-            radon_filtered, grid, mode="bilinear", padding_mode="zeros", align_corners=True
-        )
-        reconstructed = reconstructed.view(bsz, self.n_angles, 1, det_count, det_count).sum(1)
+
+        reconstructed = torch.zeros((bsz, 1, det_count, det_count), device=self.device)
+        y_grid = torch.linspace(-1, 1, self.n_angles)
+
+        # Reconstruct using a for loop
+        for i, (cos_al, sin_al, y_colume) in enumerate(zip(self.cos_al, self.sin_al, y_grid)):
+            tgrid = (grid_x * cos_al - grid_y * sin_al).unsqueeze(0).unsqueeze(-1)
+            y = torch.ones_like(tgrid) * y_colume
+            grid = torch.cat((y, tgrid), dim=-1).to(self.device)
+            # Apply grid_sample to the current angle
+            rotated_img = F.grid_sample(
+                radon_filtered, grid.repeat(bsz, 1, 1, 1), mode="bilinear", padding_mode="zeros", align_corners=True
+            )
+            rotated_img = rotated_img.view(bsz, 1, det_count, det_count)
+            # Sum the rotated images for backprojection
+            reconstructed += rotated_img
 
         # Circle
         reconstructed[reconstructed_circle == 0] = 0.0
